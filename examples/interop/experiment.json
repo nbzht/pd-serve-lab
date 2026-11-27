@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "workload": "workload.jsonl",
+  "baseline": "baseline",
+  "arms": [
+    {"name": "baseline", "vllm_result": "vllm-baseline.json"},
+    {"name": "candidate", "vllm_result": "vllm-candidate.json"}
+  ],
+  "slo": {"ttft_us": 25000, "tpot_us": 2000},
+  "gates": {"max_ttft_p95_delta_us": 0, "min_slo_attainment": 1.0}
+}

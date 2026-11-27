@@ -1,0 +1,13 @@
+{
+  "backend": "vllm",
+  "model_id": "synthetic-format-fixture",
+  "duration": 0.082,
+  "completed": 2,
+  "failed": 0,
+  "input_lens": [32, 64],
+  "output_lens": [3, 4],
+  "start_times": [7652.0001, 7652.0101],
+  "ttfts": [0.017, 0.019],
+  "latencies": [0.021, 0.025],
+  "errors": ["", ""]
+}

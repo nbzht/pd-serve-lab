@@ -4,7 +4,8 @@ from collections import deque
 from heapq import heappop, heappush
 from itertools import count
 
-from .model import MAX_TRACE_US, ROUTERS, PrefixCache
+from .metrics import nearest_rank
+from .model import MAX_TRACE_US, ROUTERS, PrefixCache, ordered_workload
 
 
 def copy_us(size_bytes, bytes_per_us):
@@ -120,20 +121,7 @@ class Simulator:
 
 
 def replay(cluster, requests, router):
-    ordered = sorted(requests, key=lambda request: request.arrival_us)
-    if not ordered:
-        raise ValueError("the workload contains no requests")
-    ids = set()
-    prefixes = {}
-    for request in ordered:
-        if request.id in ids:
-            raise ValueError(f"duplicate request id {request.id!r}")
-        ids.add(request.id)
-        if request.prefix_key is not None:
-            known_size = prefixes.setdefault(request.prefix_key, request.prefix_tokens)
-            if known_size != request.prefix_tokens:
-                raise ValueError(f"prefix {request.prefix_key!r} has inconsistent token counts")
-
+    ordered = ordered_workload(requests)
     simulator = Simulator(cluster, router)
     for request in ordered:
         simulator.schedule(request.arrival_us, simulator.arrive, request, arrival=True)
@@ -145,8 +133,7 @@ def replay(cluster, requests, router):
 
 def summarize(rows, cluster, router):
     def p95(values):
-        ordered = sorted(values)
-        return ordered[(len(ordered) * 95 + 99) // 100 - 1]
+        return nearest_rank(sorted(values), 95)
 
     prefill = [0] * cluster.prefill_workers
     decode = [0] * cluster.decode_workers

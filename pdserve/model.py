@@ -59,24 +59,59 @@ class Request:
             raise ValueError("prefix_key must be absent or null when prefix_tokens is zero")
 
 
-def load_cluster(path):
+def parse_cluster(text, source):
     try:
-        return Cluster(**json.loads(path.read_text(encoding="utf-8-sig")))
+        return Cluster(**json.loads(text))
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{path}: {exc}") from exc
+        raise ValueError(f"{source}: {exc}") from exc
+
+
+def load_cluster(path):
+    return parse_cluster(path.read_text(encoding="utf-8-sig"), path)
+
+
+def jsonl_objects(text, source):
+    for line_number, line in enumerate(text.split("\n"), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+            if not isinstance(row, dict):
+                raise ValueError("expected a JSON object")
+        except ValueError as exc:
+            raise ValueError(f"{source}:{line_number}: {exc}") from exc
+        yield line_number, row
+
+
+def parse_workload(text, source):
+    requests = []
+    for line_number, row in jsonl_objects(text, source):
+        try:
+            requests.append(Request(**row))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{source}:{line_number}: {exc}") from exc
+    return requests
 
 
 def load_workload(path):
-    requests = []
-    with path.open(encoding="utf-8-sig") as source:
-        for line_number, line in enumerate(source, 1):
-            if not line.strip():
-                continue
-            try:
-                requests.append(Request(**json.loads(line)))
-            except (TypeError, ValueError) as exc:
-                raise ValueError(f"{path}:{line_number}: {exc}") from exc
-    return requests
+    return parse_workload(path.read_text(encoding="utf-8-sig"), path)
+
+
+def ordered_workload(requests):
+    ordered = sorted(requests, key=lambda request: request.arrival_us)
+    if not ordered:
+        raise ValueError("the workload contains no requests")
+    ids = set()
+    prefixes = {}
+    for request in ordered:
+        if request.id in ids:
+            raise ValueError(f"duplicate request id {request.id!r}")
+        ids.add(request.id)
+        if request.prefix_key is not None:
+            known_size = prefixes.setdefault(request.prefix_key, request.prefix_tokens)
+            if known_size != request.prefix_tokens:
+                raise ValueError(f"prefix {request.prefix_key!r} has inconsistent token counts")
+    return ordered
 
 
 class TokenLRU:

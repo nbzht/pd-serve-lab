@@ -1,0 +1,2 @@
+{"id":"alpha","arrival_us":0,"prompt_tokens":32,"output_tokens":3,"prefix_key":"prefix-a","prefix_tokens":16}
+{"id":"beta","arrival_us":10000,"prompt_tokens":64,"output_tokens":4,"prefix_key":"prefix-a","prefix_tokens":16}

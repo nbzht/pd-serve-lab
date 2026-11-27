@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "workload": "prefix-bursts.jsonl",
+  "baseline": "round-robin",
+  "arms": [
+    {"name": "round-robin", "cluster": "cluster.json", "router": "round-robin"},
+    {"name": "cache-aware", "cluster": "cluster.json", "router": "cache-aware"}
+  ],
+  "slo": {"ttft_us": 50000, "tpot_us": 250},
+  "gates": {
+    "max_ttft_p95_delta_us": 5000,
+    "max_e2e_p95_delta_us": 5000,
+    "min_slo_attainment": 0.8
+  }
+}
