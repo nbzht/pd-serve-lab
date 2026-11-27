@@ -1,0 +1,10 @@
+{"id":"a-1","arrival_us":0,"prompt_tokens":1200,"output_tokens":100,"prefix_key":"a","prefix_tokens":800}
+{"id":"b-1","arrival_us":0,"prompt_tokens":1200,"output_tokens":100,"prefix_key":"b","prefix_tokens":800}
+{"id":"b-2","arrival_us":35000,"prompt_tokens":1000,"output_tokens":100,"prefix_key":"b","prefix_tokens":800}
+{"id":"a-2","arrival_us":35000,"prompt_tokens":1000,"output_tokens":100,"prefix_key":"a","prefix_tokens":800}
+{"id":"a-3","arrival_us":36000,"prompt_tokens":1000,"output_tokens":80,"prefix_key":"a","prefix_tokens":800}
+{"id":"c-1","arrival_us":38000,"prompt_tokens":950,"output_tokens":20,"prefix_key":"c","prefix_tokens":800}
+{"id":"b-3","arrival_us":90000,"prompt_tokens":1300,"output_tokens":40,"prefix_key":"b","prefix_tokens":800}
+{"id":"c-2","arrival_us":90000,"prompt_tokens":850,"output_tokens":80,"prefix_key":"c","prefix_tokens":800}
+{"id":"a-4","arrival_us":91000,"prompt_tokens":1200,"output_tokens":20,"prefix_key":"a","prefix_tokens":800}
+{"id":"long","arrival_us":92000,"prompt_tokens":2048,"output_tokens":80}
