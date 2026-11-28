@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "workload": "prefix-bursts.jsonl",
+  "baseline": "reference-link",
+  "arms": [
+    {"name": "reference-link", "cluster": "cluster.json", "router": "cache-aware"},
+    {"name": "slow-link", "cluster": "slow-link-cluster.json", "router": "cache-aware"}
+  ],
+  "slo": {"ttft_us": 50000, "tpot_us": 250}
+}

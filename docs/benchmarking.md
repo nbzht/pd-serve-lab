@@ -62,3 +62,21 @@ Choose an arm such as `{"name":"instrumented","events":"pd-events.jsonl"}`. Each
 ```
 
 Stages between arrival and completion are optional. The example produces prefill, transfer and decode queue measurements of 30, 30 and 40 microseconds. File order may vary. Identical events are deduplicated, conflicting events and non-monotonic stage times fail validation, and missing stage pairs produce no latency sample. Every workload request needs a terminal row, including failures. The benchmark result alone contributes client observations. The events adapter is the boundary for adding server-side instrumentation later.
+
+## Measure KV movement
+
+The report summarizes elapsed time and payload volume for each path among successful requests. Byte and timing sample counts are independent. Explicit zero bytes count toward byte coverage. An elapsed sample requires both timestamp boundaries and either positive payload bytes or a positive span with unspecified bytes.
+
+| Path | Elapsed time | Optional payload counter |
+| --- | --- | --- |
+| Prefill to decode | `transfer_start` to `transfer_end` | `kv_transfer_bytes` on `transfer_end` |
+| Host restore before prefill | `prefill_start` to `prefill_compute_start` | `host_restore_bytes` on `prefill_compute_start` |
+| Host write after prefill | `prefill_compute_end` to `prefill_ready` | `host_write_bytes` on `prefill_ready` |
+
+The two optional compute events describe a serialized prefill path. For deployments that overlap copies with compute, emit the applicable payload counters and leave ambiguous timing boundaries out of the event stream. Transfer elapsed time may include connector setup and excludes the preceding transfer queue wait. The `kv_movement` object in `comparison.json` carries percentile distributions and coverage for each path.
+
+```sh
+python -m pdserve experiment examples/kv-movement-experiment.json --out-dir runs/kv-movement
+```
+
+The bundled simulation changes only `transfer_bytes_per_us`, from 12,000 to 3,000. Total prefill-to-decode payload stays at about 367.125 MiB, while p95 transfer elapsed time grows from 5.673 ms to 22.450 ms. This isolates the modeled link cost with the same workload, router and host copy rate.

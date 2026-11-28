@@ -75,6 +75,8 @@ class ExperimentTests(unittest.TestCase):
             self.assertAlmostEqual(stats["goodput_rps"], 2 / 0.082)
             self.assertEqual(stats["queue_us"]["prefill"]["count"], 0)
             self.assertIsNone(stats["cache_residency"])
+            self.assertIsNone(stats["kv_movement"]["host_restore"]["total_bytes"])
+            self.assertEqual(stats["kv_movement"]["prefill_to_decode"]["elapsed_us"]["count"], 0)
             self.assertEqual(report["arms"]["candidate"]["input"]["capture"]["model_id"], "synthetic-format-fixture")
             self.assertEqual(report["comparisons"]["candidate"]["delta_from_baseline"]["ttft_p95_us"], -7000)
 
@@ -145,6 +147,48 @@ class ExperimentTests(unittest.TestCase):
             row = json.loads((output / "trace-instrumented.jsonl").read_bytes())
             self.assertEqual(set(row) & {"id", "status", "start_us", "end_us", "first_token_us", "output_tokens"},
                              {"id", "status", "start_us", "end_us", "first_token_us", "output_tokens"})
+
+    def test_movement_keeps_byte_coverage_separate_from_copy_latency(self):
+        workload = [Request("copied", 0, 8, 1), Request("partial", 0, 8, 1)]
+        events = [
+            event("copied", "arrival", 0, prompt_tokens=8),
+            event("copied", "prefill_start", 10, cache_tier="host"),
+            event("copied", "prefill_compute_start", 14, host_restore_bytes=64),
+            event("copied", "prefill_compute_end", 20),
+            event("copied", "prefill_ready", 23, host_write_bytes=128),
+            event("copied", "transfer_start", 30), event("copied", "transfer_end", 37, kv_transfer_bytes=256),
+            event("copied", "first_token", 41), event("copied", "complete", 41, status="ok", output_tokens=1),
+            event("partial", "arrival", 0, prompt_tokens=8),
+            event("partial", "prefill_start", 10),
+            event("partial", "prefill_compute_start", 10, host_restore_bytes=0),
+            event("partial", "prefill_ready", 23, host_write_bytes=64),
+            event("partial", "transfer_start", 25), event("partial", "transfer_end", 34),
+            event("partial", "first_token", 40), event("partial", "complete", 40, status="ok", output_tokens=1),
+        ]
+        rows = assemble_events("\n".join(reversed(events)), "events", workload)
+        stats = summarize_run(rows, {"ttft_us": 50, "tpot_us": 10})
+        self.assertEqual(stats["kv_transfer_bytes"], 256)
+        self.assertEqual(stats["kv_transfer_observations"], 1)
+        expected = {"prefill_to_decode": (1, 256, 2, 9), "host_restore": (2, 64, 1, 4),
+                    "host_write": (2, 192, 1, 3)}
+        for path, (byte_samples, total, count, p95) in expected.items():
+            movement = stats["kv_movement"][path]
+            self.assertEqual((movement["byte_samples"], movement["total_bytes"]), (byte_samples, total))
+            self.assertEqual((movement["elapsed_us"]["count"], movement["elapsed_us"]["p95"]), (count, p95))
+
+    def test_slower_link_preserves_payload_but_increases_transfer_time(self):
+        manifest = EXAMPLES / "kv-movement-experiment.json"
+        with TemporaryDirectory() as temp:
+            report = write_experiment(manifest, Path(temp) / "results")
+        baseline = report["arms"]["reference-link"]["metrics"]["kv_movement"]
+        candidate = report["arms"]["slow-link"]["metrics"]["kv_movement"]
+        self.assertEqual(baseline["host_restore"], candidate["host_restore"])
+        self.assertEqual(baseline["host_write"], candidate["host_write"])
+        base_link = baseline["prefill_to_decode"]
+        slow_link = candidate["prefill_to_decode"]
+        self.assertEqual(base_link["total_bytes"], slow_link["total_bytes"])
+        self.assertEqual(base_link["elapsed_us"]["p95"], 5673)
+        self.assertEqual(slow_link["elapsed_us"]["p95"], 22450)
 
 
 if __name__ == "__main__":

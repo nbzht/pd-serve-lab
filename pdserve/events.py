@@ -6,12 +6,20 @@ from .model import integer, jsonl_objects
 EVENT_TIMES = {
     "arrival": "start_us",
     "prefill_start": "prefill_start_us",
+    "prefill_compute_start": "prefill_compute_start_us",
+    "prefill_compute_end": "prefill_compute_end_us",
     "prefill_ready": "prefill_ready_us",
     "transfer_start": "kv_transfer_start_us",
     "transfer_end": "kv_transfer_end_us",
     "decode_start": "decode_start_us",
     "first_token": "first_token_us",
     "complete": "end_us",
+}
+
+EVENT_PAYLOADS = {
+    "prefill_compute_start": "host_restore_bytes",
+    "prefill_ready": "host_write_bytes",
+    "transfer_end": "kv_transfer_bytes",
 }
 
 
@@ -41,10 +49,11 @@ def parse_event(raw):
         if cache_tier not in ("gpu", "host", "miss"):
             raise ValueError("cache_tier must be 'gpu', 'host', or 'miss'")
         fields["cache_tier"] = cache_tier
-    elif event == "transfer_end" and "kv_transfer_bytes" in raw:
-        size = raw["kv_transfer_bytes"]
-        integer(size, "kv_transfer_bytes")
-        fields["kv_transfer_bytes"] = size
+    payload = EVENT_PAYLOADS.get(event)
+    if payload is not None and payload in raw:
+        size = raw[payload]
+        integer(size, payload)
+        fields[payload] = size
     return request_id, event, fields
 
 

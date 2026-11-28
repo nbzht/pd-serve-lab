@@ -1,0 +1,14 @@
+{
+  "prefill_workers": 2,
+  "decode_workers": 2,
+  "gpu_cache_tokens": 1024,
+  "host_cache_tokens": 4096,
+  "kv_bytes_per_token": 32768,
+  "prefill_setup_us": 100,
+  "prefill_us_per_token": 20,
+  "transfer_setup_us": 80,
+  "transfer_bytes_per_us": 3000,
+  "host_copy_bytes_per_us": 12000,
+  "decode_first_us": 1000,
+  "decode_us_per_token": 250
+}

@@ -145,6 +145,14 @@ def report_markdown(report):
         stats = arm["metrics"]
         queues = [display(stats["queue_us"][stage]["p95"], 1000) for stage in ("prefill", "transfer", "decode")]
         lines.append(f"| {name} | {' | '.join(queues)} | {stats['cache_observations']} | {stats['kv_transfer_observations']} |")
+    lines.extend(["", "## KV movement", "",
+                  "| Arm | Path | Observed byte samples | Total MiB | Timing samples | p95 elapsed ms |",
+                  "| --- | --- | ---: | ---: | ---: | ---: |"])
+    for name, arm in report["arms"].items():
+        for path, movement in arm["metrics"]["kv_movement"].items():
+            elapsed = movement["elapsed_us"]
+            lines.append(f"| {name} | {path} | {movement['byte_samples']} | {display(movement['total_bytes'], 2**20)} | "
+                         f"{elapsed['count']} | {display(elapsed['p95'], 1000)} |")
     if report["gate_status"] != "not-configured":
         lines.extend(["", "## Regression checks", "",
                       "| Candidate | Check | Observed | Limit | Result |", "| --- | --- | ---: | ---: | --- |"])

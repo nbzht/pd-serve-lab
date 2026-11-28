@@ -9,6 +9,12 @@ QUEUE_SPANS = {
     "decode": ("kv_transfer_end_us", "decode_start_us"),
 }
 
+KV_SPANS = {
+    "prefill_to_decode": ("kv_transfer_bytes", "kv_transfer_start_us", "kv_transfer_end_us"),
+    "host_restore": ("host_restore_bytes", "prefill_start_us", "prefill_compute_start_us"),
+    "host_write": ("host_write_bytes", "prefill_compute_end_us", "prefill_ready_us"),
+}
+
 
 def nearest_rank(ordered, percentile):
     if not ordered:
@@ -23,6 +29,24 @@ def distribution(samples):
         value = nearest_rank(ordered, percentile)
         stats[f"p{percentile}"] = float(value) if isinstance(value, Fraction) else value
     return stats
+
+
+def summarize_kv_movement(rows):
+    movement = {}
+    for path, (field, start, end) in KV_SPANS.items():
+        volumes = []
+        elapsed = []
+        for row in rows:
+            size = row.get(field)
+            if size is not None:
+                volumes.append(size)
+            if start in row and end in row:
+                span = row[end] - row[start]
+                if (size is None and span > 0) or (size is not None and size > 0):
+                    elapsed.append(span)
+        movement[path] = {"byte_samples": len(volumes), "total_bytes": sum(volumes) if volumes else None,
+                          "elapsed_us": distribution(elapsed)}
+    return movement
 
 
 def summarize_run(rows, slo, observation_us=None):
@@ -54,7 +78,8 @@ def summarize_run(rows, slo, observation_us=None):
         for stage, (start, end) in QUEUE_SPANS.items()
     }
     cache_observed = [row for row in successful if "cache_tier" in row]
-    transfer_observed = [row["kv_transfer_bytes"] for row in successful if "kv_transfer_bytes" in row]
+    movement = summarize_kv_movement(successful)
+    transfer = movement["prefill_to_decode"]
     output_tokens = sum(row["output_tokens"] for row in successful)
     return {
         "requests": len(rows), "successful_requests": len(successful),
@@ -67,6 +92,7 @@ def summarize_run(rows, slo, observation_us=None):
         "cache_observations": len(cache_observed),
         "cache_residency": {tier: sum(row["cache_tier"] == tier for row in cache_observed)
                             for tier in ("gpu", "host", "miss")} if cache_observed else None,
-        "kv_transfer_observations": len(transfer_observed),
-        "kv_transfer_bytes": sum(transfer_observed) if transfer_observed else None,
+        "kv_transfer_observations": transfer["byte_samples"],
+        "kv_transfer_bytes": transfer["total_bytes"],
+        "kv_movement": movement,
     }
